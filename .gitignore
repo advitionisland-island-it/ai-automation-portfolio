@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+
+# Secrets never go into git. .env.example documents the variables instead.
+.env
+.env.*
+!.env.example
+
+.DS_Store
+
+# Evaluation runs with the fake provider check the harness only; they are not reports.
+eval/reports/*-fake-*

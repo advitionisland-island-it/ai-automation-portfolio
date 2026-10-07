@@ -1,0 +1,55 @@
+[project]
+name = "sales-ops"
+version = "0.1.0"
+description = "AI-assisted lead qualification with a human approval step (portfolio project P01)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "anthropic>=1.8.0",
+    "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.15.0",
+    "pydantic[email]>=2.13.5",
+    "python-multipart>=0.0.32",
+    "sqlalchemy>=2",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# E/F: pycodestyle + pyflakes, I: import order, B: bugbear, UP: pyupgrade, S: bandit (security)
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest works
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src", "tests", "scripts"]
+mypy_path = "src"
+warn_unused_ignores = true
+warn_return_any = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Live tests call paid external APIs; they only run when selected explicitly (D-14).
+addopts = "-ra -m 'not live'"
+markers = ["live: calls real external APIs (excluded by default)"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]

@@ -1,0 +1,129 @@
+name: sales-ops
+
+# Local development stack. Credentials below are local-only defaults, not secrets.
+# Ports bind to 127.0.0.1 so the database is not reachable from the local network.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sales_ops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sales_ops}
+      POSTGRES_DB: ${POSTGRES_DB:-sales_ops}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, on first start of an empty volume: creates the test database.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot: applies database migrations, then exits. The api starts only after it succeeded.
+  # The app image is built by the api service only: compose labels each build with its service,
+  # so three builds of one tag would make three different images (D-95).
+  migrate:
+    image: sales-ops-app:local
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sales_ops}:${POSTGRES_PASSWORD:-sales_ops}@postgres:5432/${POSTGRES_DB:-sales_ops}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    image: sales-ops-app:local
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sales_ops}:${POSTGRES_PASSWORD:-sales_ops}@postgres:5432/${POSTGRES_DB:-sales_ops}
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # The slim image has no curl; urlopen raises on non-2xx, which marks the container unhealthy.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Worker (D-6): qualifies leads, drafts follow-ups, sends approved ones to Mailpit. It uses
+  # the built-in fake provider (U6), which says in its output that no real model was called.
+  worker:
+    image: sales-ops-app:local
+    command: ["python", "-m", "sales_ops.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sales_ops}:${POSTGRES_PASSWORD:-sales_ops}@postgres:5432/${POSTGRES_DB:-sales_ops}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Catches every email the stack sends (D-11); nothing leaves the machine.
+  # Inbox and API: http://127.0.0.1:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # n8n (UD-3): webhook ingress, notifications and alerts. The workflows in ./n8n are imported
+  # and published on every start, so nothing is clicked in the UI (AC-4.1). Editor and
+  # webhooks: http://127.0.0.1:5678
+  n8n:
+    image: n8nio/n8n:2.40.7
+    entrypoint: ["tini", "--", "/bin/sh", "/opt/p01-n8n/start.sh"]
+    environment:
+      # Nothing goes to n8n's servers: no telemetry, version checks or templates.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      EXTERNAL_FRONTEND_HOOKS_URLS: ""
+      N8N_DIAGNOSTICS_CONFIG_FRONTEND: ""
+      N8N_DIAGNOSTICS_CONFIG_BACKEND: ""
+      GENERIC_TIMEZONE: UTC
+      # /metrics reports how many workflows are active (AC-4.1, U7). Local port only.
+      N8N_METRICS: "true"
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n:/opt/p01-n8n:ro
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  pgdata:
+  n8n_data:

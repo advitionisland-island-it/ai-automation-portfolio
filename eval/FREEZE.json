@@ -1,0 +1,12 @@
+{
+  "dataset": "eval/dataset.csv",
+  "sha256": "9ba63296718bd80d309778609d4387b747019be910a1855aceb12bae07a7277f",
+  "frozen_at": "2026-09-26T18:33:21+00:00",
+  "rows": 30,
+  "tiers": {
+    "cold": 6,
+    "hot": 13,
+    "warm": 11
+  },
+  "unlabeled_source_commit": "5cc7f0dfcfb498505a5ad8338431697737b8793a"
+}

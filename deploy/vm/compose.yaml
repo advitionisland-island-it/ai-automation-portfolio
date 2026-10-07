@@ -1,0 +1,122 @@
+name: sales-ops
+
+# The M6 deployment in the Linux VM (UD-7). It runs the images built on the Mac: nothing is built
+# or pulled here, and deploy.sh checks that the image IDs match (AC-6.2). Settings come from the
+# environment. The database password comes from /etc/sales-ops/secrets.env, a root-only file in
+# the VM, outside git (AC-6.3). Ports are published on the VM's 127.0.0.1, and the VM forwards
+# none of them to the Mac (lima.yaml), so nothing here is reachable from outside the VM (AC-6.1).
+
+x-database-url: &database-url
+  DATABASE_URL: postgresql+psycopg://sales_ops:${POSTGRES_PASSWORD:?set in /etc/sales-ops/secrets.env}@postgres:5432/sales_ops
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sales_ops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in /etc/sales-ops/secrets.env}
+      POSTGRES_DB: sales_ops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # One-shot, on every deploy: applies the migrations, then exits. The api and the worker start
+  # only after it succeeded (AC-6.5).
+  migrate:
+    image: sales-ops-app:local
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: sales-ops-app:local
+    environment:
+      <<: *database-url
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # /healthz checks the database too: unreachable means 503, and the container turns
+      # unhealthy (AC-6.4). The slim image has no curl.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    image: sales-ops-app:local
+    command: ["python", "-m", "sales_ops.worker"]
+    environment:
+      <<: *database-url
+      LLM_PROVIDER: fake # U12: no model API, no key in the VM
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:2.40.7
+    entrypoint: ["tini", "--", "/bin/sh", "/opt/p01-n8n/start.sh"]
+    environment:
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      EXTERNAL_FRONTEND_HOOKS_URLS: ""
+      N8N_DIAGNOSTICS_CONFIG_FRONTEND: ""
+      N8N_DIAGNOSTICS_CONFIG_BACKEND: ""
+      GENERIC_TIMEZONE: UTC
+      N8N_METRICS: "true"
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n:/opt/p01-n8n:ro
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5678/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  pgdata:
+  n8n_data:

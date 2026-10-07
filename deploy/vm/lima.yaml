@@ -1,0 +1,57 @@
+# The M6 deployment target (UD-7, U12, U13): a Linux VM on this Mac, apart from Docker Desktop.
+# Nothing in it is reachable from outside the VM: no port is forwarded to the Mac, and no Mac
+# folder is shared into it (files are copied in). The LLM is the fake provider and mail goes to
+# Mailpit, so the VM needs no API key and sends no real email.
+#
+#   ~/.local/lima/bin/limactl start --name=p01-vm --tty=false deploy/vm/lima.yaml
+minimumLimaVersion: 2.0.0
+
+base:
+- template:_images/ubuntu-24.04 # Ubuntu 24.04 LTS, pinned by Lima and checked against its digest
+
+vmType: vz
+cpus: 4
+memory: 4GiB
+disk: 30GiB
+
+mounts: []
+
+# Lima forwards every port a guest process listens on to the Mac unless a rule says otherwise.
+portForwards:
+- guestIP: "127.0.0.1" # also matches ports bound to 0.0.0.0, ::, ::1
+  proto: any
+  ignore: true
+- guestIP: "0.0.0.0"
+  guestIPMustBeZero: false # any interface
+  proto: any
+  ignore: true
+
+containerd:
+  system: false
+  user: false
+
+# Docker from Ubuntu's own archive (no third-party repository, no install script from the web).
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    command -v docker >/dev/null 2>&1 && exit 0
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends docker.io docker-compose-v2
+    systemctl enable --now docker
+
+probes:
+- script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    if ! timeout 120s bash -c "until command -v docker >/dev/null 2>&1; do sleep 3; done"; then
+      echo >&2 "docker is not installed yet"
+      exit 1
+    fi
+    if ! timeout 60s bash -c "until pgrep dockerd; do sleep 3; done"; then
+      echo >&2 "dockerd is not running"
+      exit 1
+    fi
+  hint: See "/var/log/cloud-init-output.log" in the guest

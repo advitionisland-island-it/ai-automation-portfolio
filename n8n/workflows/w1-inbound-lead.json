@@ -1,0 +1,176 @@
+{
+  "id": "P01W1InboundLead",
+  "name": "W1 inbound: form to lead API",
+  "nodes": [
+    {
+      "id": "5b0e1c6e-7a51-4d1b-9a1e-0a0000000101",
+      "name": "Form submission",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-form",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "0c1f4d52-2f8e-4b8e-8d0f-0a0000000101"
+    },
+    {
+      "id": "5b0e1c6e-7a51-4d1b-9a1e-0a0000000102",
+      "name": "Create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/v1/leads",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ 'form-' + JSON.stringify({ email: String($json.body.email || '').trim(), name: String($json.body.name || '').trim(), company: String($json.body.company || '').trim() || null, message: String($json.body.message || '').trim(), source: 'web_form' }).hash('sha256') }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: String($json.body.email || '').trim(), name: String($json.body.name || '').trim(), company: String($json.body.company || '').trim() || null, message: String($json.body.message || '').trim(), source: 'web_form' }) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "5b0e1c6e-7a51-4d1b-9a1e-0a0000000103",
+      "name": "Lead API failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7e2d9a10-0000-4000-8000-0a0000000103",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 500,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5b0e1c6e-7a51-4d1b-9a1e-0a0000000104",
+      "name": "Stop: lead API failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        780,
+        -120
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "={{ 'The lead API answered HTTP ' + $json.statusCode }}"
+      }
+    },
+    {
+      "id": "5b0e1c6e-7a51-4d1b-9a1e-0a0000000105",
+      "name": "Answer the form",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        780,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Form submission": {
+      "main": [
+        [
+          {
+            "node": "Create lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create lead": {
+      "main": [
+        [
+          {
+            "node": "Lead API failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead API failed?": {
+      "main": [
+        [
+          {
+            "node": "Stop: lead API failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer the form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "P01W3AlertMail00",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "active": false
+}

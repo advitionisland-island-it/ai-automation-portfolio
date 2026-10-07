@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review: {{ lead.company or "lead" }}</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; color: #1b1b1b; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+  h2 { font-size: 1.05rem; margin: 1.6rem 0 0.4rem; }
+  .muted { color: #5c5c5c; }
+  .banner { padding: 0.6rem 0.8rem; border-radius: 6px; margin: 1rem 0; }
+  .ok { background: #e6f4ea; border: 1px solid #9fd3ad; }
+  .error { background: #fdecea; border: 1px solid #f1a9a0; }
+  .draft { border: 1px solid #d0d0d0; border-radius: 6px; padding: 0.8rem 1rem; background: #fafafa; }
+  .draft pre { white-space: pre-wrap; font: inherit; margin: 0.4rem 0 0; }
+  code { font-size: 0.85em; word-break: break-all; }
+  form { margin: 0.8rem 0; }
+  label { display: block; margin: 0.4rem 0 0.2rem; }
+  input[type=text], textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 0.35rem; }
+  textarea { min-height: 12rem; }
+  button { font: inherit; padding: 0.35rem 1rem; margin-top: 0.5rem; }
+  details { margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>{{ lead.company or "Unknown company" }}</h1>
+<p class="muted">To: {{ lead.recipient }} &middot; status: <strong>{{ lead.status }}</strong>{% if lead.status_reason %} ({{ lead.status_reason }}){% endif %}</p>
+
+{% if result %}<div class="banner ok" role="status">{{ result }}</div>{% endif %}
+{% if error %}<div class="banner error" role="alert">{{ error }}</div>{% endif %}
+
+{% if lead.assessment %}
+<h2>Assessment</h2>
+<p><strong>{{ lead.assessment.tier }}</strong> lead, score {{ lead.assessment.score }}, confidence {{ lead.assessment.confidence }}</p>
+<p>{{ lead.assessment.summary }}</p>
+<ul>{% for reason in lead.assessment.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if lead.draft %}
+<h2>Draft (version {{ lead.draft.version }}, written by {{ lead.draft.created_by }})</h2>
+<div class="draft">
+  <strong>{{ lead.draft.subject }}</strong>
+  <pre>{{ lead.draft.body }}</pre>
+</div>
+<p class="muted">sha256 <code>{{ lead.draft.sha256 }}</code></p>
+{% endif %}
+
+{% if lead.sent %}
+<p class="banner ok">Sent {{ lead.sent.sent_at }} &middot; Message-ID <code>{{ lead.sent.message_id }}</code></p>
+{% elif lead.approval %}
+<p class="banner ok">Approved by {{ lead.approval.approved_by }} at {{ lead.approval.approved_at }}. The worker sends it shortly.</p>
+{% endif %}
+
+{% if lead.draft and lead.status == "awaiting_approval" %}
+<h2>Decide</h2>
+<form method="post" action="/review/{{ lead.lead_id }}/approve">
+  <input type="hidden" name="draft_sha256" value="{{ lead.draft.sha256 }}">
+  <label for="approve-reviewer">Your name</label>
+  <input type="text" id="approve-reviewer" name="reviewer" required maxlength="100" pattern="[A-Za-z0-9._\-]+">
+  <button type="submit">Approve and send this text</button>
+</form>
+<form method="post" action="/review/{{ lead.lead_id }}/reject">
+  <input type="hidden" name="draft_sha256" value="{{ lead.draft.sha256 }}">
+  <label for="reject-reviewer">Your name</label>
+  <input type="text" id="reject-reviewer" name="reviewer" required maxlength="100" pattern="[A-Za-z0-9._\-]+">
+  <label for="reject-reason">Reason (optional)</label>
+  <input type="text" id="reject-reason" name="reason" maxlength="400">
+  <button type="submit">Reject: send nothing</button>
+</form>
+{% endif %}
+
+{% if lead.draft and lead.status in ("awaiting_approval", "approved") and not lead.sent %}
+<details>
+  <summary>Edit the draft{% if lead.status == "approved" %} (this withdraws the approval){% endif %}</summary>
+  <form method="post" action="/review/{{ lead.lead_id }}/draft">
+    <input type="hidden" name="draft_sha256" value="{{ lead.draft.sha256 }}">
+    <label for="edit-subject">Subject</label>
+    <input type="text" id="edit-subject" name="subject" required maxlength="150" value="{{ lead.draft.subject }}">
+    <label for="edit-body">Body</label>
+    <textarea id="edit-body" name="body" required maxlength="4000">{{ lead.draft.body }}</textarea>
+    <label for="edit-reviewer">Your name</label>
+    <input type="text" id="edit-reviewer" name="reviewer" required maxlength="100" pattern="[A-Za-z0-9._\-]+">
+    <button type="submit">Save as a new version</button>
+  </form>
+</details>
+{% endif %}
+</body>
+</html>
