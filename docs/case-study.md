@@ -1,5 +1,7 @@
 # Case study: an AI sales-operations engine with a human in the loop
 
+English | [日本語](case-study.ja.md)
+
 > **Draft.** Everything below is backed by the code and tests in this repository. The numbers
 > in "Measured result" are quoted from the two evaluation reports in `eval/reports/`.
 

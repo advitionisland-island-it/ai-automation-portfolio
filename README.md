@@ -1,5 +1,7 @@
 # AI Sales Operations Engine
 
+English | [日本語](README.ja.md)
+
 Inbound B2B inquiries are qualified by an LLM, a follow-up is drafted, and a person approves the
 exact text before anything is sent. A web form posts to n8n, FastAPI and a worker do the work
 on PostgreSQL, and email goes to a local mail catcher. Portfolio project P01.
@@ -402,7 +404,8 @@ make vm-e2e      # the e2e checks, run inside the VM
   mail twice (see Failure cases).
 - **Notifications by polling.** Review and alert emails leave up to about 10 seconds after the
   event, and can arrive twice if n8n stops between sending and marking them delivered.
-- **English only.** The review page, n8n's emails and the docs are in English. The drafting
+- **English UI and notifications.** The review page and n8n's emails are in English.
+  Japanese documentation is available in [README.ja.md](README.ja.md). The drafting
   prompt asks for the inquiry's language, but drafting has only run with the fake provider,
   which always writes English, so whether a real model follows it is untested.
 - Not in scope: CRM integration, a dashboard, real company data.
