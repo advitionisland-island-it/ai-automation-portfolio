@@ -15,3 +15,7 @@ dist/
 
 # Evaluation runs with the fake provider check the harness only; they are not reports.
 eval/reports/*-fake-*
+
+# Verification output is attached to Releases/CI artifacts, not committed.
+**/test-results/
+*.zip

@@ -1,0 +1,9 @@
+### Synthetic inquiry only. All email goes to local Mailpit.
+POST http://127.0.0.1:8000/v1/leads
+Content-Type: application/json
+Idempotency-Key: example-inquiry-001
+
+{"email":"jane@example.com","name":"Jane","company":"Example KK","message":"We receive 300 inquiries monthly and want to reply faster."}
+
+### Health includes a database query.
+GET http://127.0.0.1:8000/healthz

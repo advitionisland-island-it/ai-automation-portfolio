@@ -1,6 +1,6 @@
 # AI Sales Operations Engine — 日本語ガイド
 
-[English](README.md) | 日本語
+[English](guide.en.md) | 日本語
 
 **B2Bの問い合わせを受け付け、AIで見込み度を評価し、返信案を作成して、人が承認した本文だけを送信する仕組みです。** ポートフォリオプロジェクトP01として、重複受付、AIの不正な出力、同時処理、障害からの回復まで検証しています。
 
@@ -13,7 +13,7 @@
 | ポートフォリオ内の識別名 | `p01-lead-automation` |
 | Pythonパッケージ | `sales_ops` |
 
-[日本語ケーススタディ](docs/case-study.ja.md)では、課題、設計の理由、検証で見つかった不具合、実測結果を説明しています。
+[日本語ケーススタディ](case-study.ja.md)では、課題、設計の理由、検証で見つかった不具合、実測結果を説明しています。
 
 ## このプロジェクトで示すこと
 
@@ -22,7 +22,7 @@
 - **承認した本文と送信する本文を一致させる。** 下書きのSHA-256と承認を結び付け、DBの制約でも確認します。
 - **複数workerと障害回復に対応する。** PostgreSQLのジョブキュー、処理権の期限、回数を制限した再試行を使います。
 - **失敗する条件と限界を説明する。** SMTP送信直後に停止すると二重送信になる条件も、テストで再現しています。
-- **n8nとPythonの役割を分ける。** システム連携はn8n、リードの状態や承認の判断はPythonに集約します。[設計判断の原文](docs/adr/0001-n8n-python-boundary.md)
+- **n8nとPythonの役割を分ける。** システム連携はn8n、リードの状態や承認の判断はPythonに集約します。[設計判断の原文](adr/0001-n8n-python-boundary.md)
 
 ## 現在できることと、まだ確かめていないこと
 
@@ -173,13 +173,13 @@ make n8n-status  # n8nのworkflow・metrics・Webhook登録を確認
 
 公開時のclean exportでは**396件のテストがPASS**し、実APIを呼ぶ1件は既定どおり除外しました。DBやMailpitがない場合に成功扱いでskipする構成ではありません。並列受付、複数worker、同時承認、送信中の再承認、9状態の81通りの遷移、DB制約、workflow JSONとAPIの対応を確認します。意図的にコードを壊す検証でも、防御を外したときにテストが失敗することを確かめています。
 
-CI定義は[`.github/workflows/ci.yml`](.github/workflows/ci.yml)です。上の396件はローカル検証結果で、GitHub Actionsの成功を示す数値ではありません。
+CI定義は[`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)です。上の396件はローカル検証結果で、GitHub Actionsの成功を示す数値ではありません。
 
 ## 実モデルによる評価結果
 
 `eval/dataset.csv`の合成問い合わせ30件を、人がモデルの実行前にラベル付けし、SHA-256で固定して比較しました。**一致率は、その人の分類と一致した割合です。営業成果やモデル全般の正解率ではありません。**
 
-2026年9月27日、prompt `qualify-v1`、出力上限2048トークン、各モデル1回の結果です。workerの出力上限は4096です。[評価レポート](eval/reports/)
+2026年9月27日、prompt `qualify-v1`、出力上限2048トークン、各モデル1回の結果です。workerの出力上限は4096です。[評価レポート](../eval/reports/)
 
 | モデル | 人の分類との一致 | 処理時間 p50 / p95 | 1件あたり費用 | 人の確認へ回した件数 |
 |---|---|---|---|---|
@@ -212,7 +212,7 @@ SMTPとDBを一つのトランザクションにはできません。送信前�
 
 APIキーはGit管理外の`.env`に置きます。`make check`でsecret scanを実行し、n8nのMailpit用SMTP設定には認証秘密情報を含めません。ComposeのDB資格情報はローカル開発用の既定値です。問い合わせ文はprompt内でデータとして区切り、出力検証と人の承認を組み合わせます。
 
-既存の配備先は、Docker Desktopとは別のLima 2.2 / Ubuntu 24.04 VMです。[設定](deploy/vm/lima.yaml)ではMacへのポート転送とフォルダ共有を行いません。実モデルや外部メール配送を使う公開サービスではありません。
+既存の配備先は、Docker Desktopとは別のLima 2.2 / Ubuntu 24.04 VMです。[設定](../deploy/vm/lima.yaml)ではMacへのポート転送とフォルダ共有を行いません。実モデルや外部メール配送を使う公開サービスではありません。
 
 ```bash
 ~/.local/lima/bin/limactl start --name=p01-vm --tty=false deploy/vm/lima.yaml
