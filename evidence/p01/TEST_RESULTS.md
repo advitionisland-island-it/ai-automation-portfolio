@@ -49,3 +49,16 @@ English: historical results and a current-tree rerun are separate claims. Paid l
 `69af6a89f870e3149f8970da26ac8e6b85b5757a25cf44ca867a0a9299fc2efd`
 
 最終commit自身の396テストはpre-pushとGitHub CIで再確認し、CI artifactは対象の完全SHAを名前と`commit.txt`に記録します。localログとZIPの照合情報はRelease成果物へ添付します。
+
+## P01-only clean exportの再検証（2026-10-07）
+
+公開範囲の確定後、P01のtracked filesだけから`.git`を含まない一時treeを作成し、CI workflowをrootの`.github/workflows/`に配置して検証しました。
+
+- export対象：94ファイル。`docs/ai/`、P02、親履歴、内部判断記録、他プロジェクトは含みません。
+- Python 3.13.12、`uv sync --locked`で作成した専用環境。PostgreSQL 17 / Mailpit v1.31.2を専用コンテナ・別ポートで起動。
+- `uv run pytest -q`：**396 passed / 1 deselected、30.47秒**。deselectedは有料APIのlive testです。実行環境からAPIキーを除外し、fake providerを使用しました。
+- exportの全94ファイルに既存secret pattern scannerを実行：exit 0、0 findings。検出対象のパターンに一致しなかったことを示し、すべての秘密情報の不存在を保証するものではありません。
+- 公開済みcommit `bed43fd4fb7a4d736bc0a11419c8623317b576a7`と、P01の実装・テスト・データ・レポート90ファイルの内容一致を確認しました。READMEなど公開用文書とCIの配置は別に確認しています。
+- 公開履歴の全3 commitsを確認し、親リポジトリとの共有commitは0。過去の公開treeにも禁止対象のパスがないことを確認しました。既存の独立したP01履歴を保持し、親履歴のpushやforce pushは行いません。
+
+この再検証の396件に、E2E、mutation、実API smokeの別実行を合算していません。公開用文書の更新後は、更新commitのGitHub Actionsで通常テストを再確認します。

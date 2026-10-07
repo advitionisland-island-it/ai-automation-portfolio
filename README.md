@@ -1,8 +1,10 @@
-# AI Automation / QA Portfolio
+# P01 Lead Automation
 
 [![CI](https://github.com/advitionisland-island-it/ai-automation-portfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/advitionisland-island-it/ai-automation-portfolio/actions/workflows/ci.yml)
 
-**AIを業務へ組み込む実装力と、その動作・失敗条件をテストで説明するQA能力を確認できるポートフォリオです。** ソース、テスト、検証記録を公開しています。現時点の対象はP01のみです。
+P01の問い合わせ処理システムのソース、テスト、検証記録を公開しています。公開範囲はP01のみです。親リポジトリの履歴、`docs/ai/`、P02、内部判断記録、その他のプロジェクトは含めません。
+
+2026-10-07のclean exportで **396 passed / 有料APIのlive test 1件除外** を再確認しました。export対象94ファイルのsecret pattern scanは0 findingsです。[対象・環境・確認範囲](evidence/p01/TEST_RESULTS.md)を参照してください。
 
 ## P01：問い合わせから、人が承認した返信まで
 
@@ -18,9 +20,9 @@ B2Bの問い合わせを受け付け、AIが見込み度を評価して返信案
 
 ### 目的別に読む
 
-- **採用担当・非技術者**：[日本語ケーススタディ](projects/p01-lead-automation/docs/case-study.ja.md)
-- **エンジニア**：[P01概要・起動方法](projects/p01-lead-automation/README.ja.md) / [English](projects/p01-lead-automation/README.md) / [構成](docs/ARCHITECTURE.md)
-- **数値を確認するレビュー担当**：[証跡](evidence/p01/)・[GitHub Actions](https://github.com/advitionisland-island-it/ai-automation-portfolio/actions)
+- **処理の流れと設計判断**：[日本語ケーススタディ](projects/p01-lead-automation/docs/case-study.ja.md)
+- **実装・起動方法**：[P01概要・起動方法](projects/p01-lead-automation/README.ja.md) / [English](projects/p01-lead-automation/README.md) / [構成](docs/ARCHITECTURE.md)
+- **検証結果**：[証跡](evidence/p01/)・[GitHub Actions](https://github.com/advitionisland-island-it/ai-automation-portfolio/actions)
 
 ## 自分で実行する
 
@@ -46,4 +48,4 @@ Docker Compose v2・make・uvが必要です。開発・E2Eはfake LLMを使い�
 
 ## English overview
 
-A verifiable portfolio of AI automation engineering and QA. P01 implements B2B inquiry intake, qualification, drafting and human approval with n8n, FastAPI and PostgreSQL. Inspect [the project](projects/p01-lead-automation/README.md), [case study](projects/p01-lead-automation/docs/case-study.md) and [evidence](evidence/p01/). Real-model qualification is historical evidence; drafting and E2E use a fake provider. See the limitations before interpreting the results as production readiness.
+This repository publishes P01 source code, tests and technical evidence only. Parent repository history and private material are excluded. P01 implements B2B inquiry intake, qualification, drafting and human approval with n8n, FastAPI and PostgreSQL. Inspect [the project](projects/p01-lead-automation/README.md), [case study](projects/p01-lead-automation/docs/case-study.md) and [evidence](evidence/p01/). Real-model qualification is historical evidence; drafting and E2E use a fake provider. See the limitations before interpreting the results as production readiness.
